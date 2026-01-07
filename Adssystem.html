@@ -1,0 +1,146 @@
+<?php
+session_start();
+
+/* DATABASE CONNECTION */
+$conn = mysqli_connect("localhost", "root", "", "ads_system");
+if (!$conn) die("Database Error");
+
+/* AD UPLOAD */
+if (isset($_POST['upload_ad'])) {
+    $title = $_POST['title'];
+    $category = $_POST['category'];
+    $description = $_POST['description'];
+
+    $file = $_FILES['file']['name'];
+    $tmp = $_FILES['file']['tmp_name'];
+    move_uploaded_file($tmp, "uploads/" . $file);
+
+    mysqli_query($conn, "INSERT INTO ads (title,category,description,file)
+    VALUES ('$title','$category','$description','$file')");
+}
+
+/* ADMIN LOGIN */
+if (isset($_POST['admin_login'])) {
+    $u = $_POST['username'];
+    $p = $_POST['password'];
+
+    $check = mysqli_query($conn,
+        "SELECT * FROM admin WHERE username='$u' AND password='$p'");
+    if (mysqli_num_rows($check) == 1) {
+        $_SESSION['admin'] = $u;
+    }
+}
+
+/* APPROVE */
+if (isset($_GET['approve'])) {
+    mysqli_query($conn, "UPDATE ads SET status='approved' WHERE id=".$_GET['approve']);
+}
+
+/* REJECT */
+if (isset($_GET['reject'])) {
+    mysqli_query($conn, "UPDATE ads SET status='rejected' WHERE id=".$_GET['reject']);
+}
+
+/* LOGOUT */
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: ads_system.php");
+}
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Ad Upload & Admin System</title>
+<style>
+body{font-family:Arial;background:#f4f4f4;padding:20px}
+.box{background:#fff;padding:20px;margin-bottom:20px;border-radius:5px}
+input,select,textarea,button{width:100%;padding:8px;margin:5px 0}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #ccc;padding:8px;text-align:center}
+a{padding:5px 8px;text-decoration:none;color:white}
+.approve{background:green}
+.reject{background:red}
+</style>
+</head>
+<body>
+
+<h1>Advertisement System</h1>
+
+<!-- USER AD UPLOAD -->
+<div class="box">
+<h2>Upload Ad</h2>
+<form method="POST" enctype="multipart/form-data">
+<input type="text" name="title" placeholder="Ad Title" required>
+<select name="category">
+<option>Business</option>
+<option>Education</option>
+<option>Technology</option>
+</select>
+<textarea name="description" placeholder="Description"></textarea>
+<input type="file" name="file" required>
+<button name="upload_ad">Upload</button>
+</form>
+</div>
+
+<!-- ADMIN LOGIN -->
+<?php if (!isset($_SESSION['admin'])) { ?>
+<div class="box">
+<h2>Admin Login</h2>
+<form method="POST">
+<input type="text" name="username" placeholder="Username">
+<input type="password" name="password" placeholder="Password">
+<button name="admin_login">Login</button>
+</form>
+</div>
+<?php } ?>
+
+<!-- ADMIN DASHBOARD -->
+<?php if (isset($_SESSION['admin'])) { ?>
+<div class="box">
+<h2>Admin Dashboard</h2>
+<a href="?logout=1" style="background:black">Logout</a>
+
+<table>
+<tr>
+<th>Title</th>
+<th>Category</th>
+<th>File</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+
+<?php
+$ads = mysqli_query($conn,"SELECT * FROM ads");
+while ($row = mysqli_fetch_assoc($ads)) {
+?>
+<tr>
+<td><?= $row['title'] ?></td>
+<td><?= $row['category'] ?></td>
+<td><a href="uploads/<?= $row['file'] ?>" target="_blank" style="background:blue">View</a></td>
+<td><?= $row['status'] ?></td>
+<td>
+<a class="approve" href="?approve=<?= $row['id'] ?>">Approve</a>
+<a class="reject" href="?reject=<?= $row['id'] ?>">Reject</a>
+</td>
+</tr>
+<?php } ?>
+
+</table>
+</div>
+<?php } ?>
+
+<!-- APPROVED ADS -->
+<div class="box">
+<h2>Approved Ads</h2>
+<?php
+$show = mysqli_query($conn,"SELECT * FROM ads WHERE status='approved'");
+while ($a = mysqli_fetch_assoc($show)) {
+    echo "<h3>".$a['title']."</h3>";
+    echo "<img src='uploads/".$a['file']."' width='200'><hr>";
+}
+?>
+</div>
+
+</body>
+</html>
